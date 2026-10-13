@@ -1,0 +1,446 @@
+{
+  "name": "Mi Piace Gelato - Atención por Email con CRM y Borrador",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {
+          "labelIds": [
+            "INBOX"
+          ]
+        },
+        "options": {}
+      },
+      "id": "d3fd68fb-27cd-4dd4-8a79-4e25de09f578",
+      "name": "Gmail Trigger",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1760,
+        160
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "13z86MQsPUYFlfKW",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a1b2c3d4-0001-4000-8000-bbbbbbbbbbbb",
+              "leftValue": "={{ (() => { const h = $json.headers || {}; const auto = String(h['auto-submitted'] || '').toLowerCase(); const prec = String(h['precedence'] || '').toLowerCase(); const subj = String($json.subject || '').toLowerCase(); const from = String($json.from?.value?.[0]?.address || '').toLowerCase(); return (auto !== '' && auto !== 'no') || ['bulk', 'junk', 'auto_reply', 'list'].includes(prec) || !!h['x-autoreply'] || !!h['x-autorespond'] || /respuesta autom|auto.?reply|automatic reply|out of office|fuera de la oficina|undeliverable/.test(subj) || /no-?reply|mailer-daemon|postmaster/.test(from); })() }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "5148b422-e806-4d81-8d9c-5673043b84eb",
+      "name": "IF - Anti Auto-Reply",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1504,
+        160
+      ],
+      "notes": "TRUE = el correo es una respuesta automática (el flujo se detiene, la salida true no está conectada). FALSE = correo real, el flujo continúa."
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Remitente: {{ $json.from.value[0].address }}\nAsunto: {{ $json.subject }}\n\nMensaje recibido:\n{{ $json.text }}\n\nClasificá el correo y redactá la respuesta para el cliente.",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "Sos el asistente de atención al cliente de \"Mi Piace Gelato\", una heladería artesanal ubicada en General Mitre 73. Tu tarea es analizar cada correo entrante, clasificarlo y redactar una respuesta lista para ser revisada por una persona antes de enviarse.\n\nCategorías posibles: Consulta, Pedido, Reclamo, Sugerencia, Otro.\n\nReglas para la respuesta:\n- Escribí en español rioplatense, con un tono cálido, cercano y profesional.\n- Saludá por el nombre del cliente si lo tenés; si no, usá un saludo cordial.\n- Sé breve y claro.\n- Nunca inventes precios, sabores, promociones, horarios ni datos que no estén en el correo: si no tenés la información, indicá que se la confirmarán a la brevedad.\n- Si es un reclamo, mostrá empatía y pedí disculpas.\n- Cerrá la respuesta con: \"Un saludo, el equipo de Mi Piace Gelato\".\n\nDevolvé la salida únicamente en el formato estructurado solicitado (categoria y respuesta).",
+          "maxIterations": 5
+        }
+      },
+      "id": "3d435672-e372-4b3f-9f7e-ca7e9d4a287a",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        -1232,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"categoria\": {\n      \"type\": \"string\",\n      \"enum\": [\"Consulta\", \"Pedido\", \"Reclamo\", \"Sugerencia\", \"Otro\"]\n    },\n    \"respuesta\": {\n      \"type\": \"string\"\n    }\n  },\n  \"required\": [\"categoria\", \"respuesta\"]\n}"
+      },
+      "id": "c0ef2170-288a-4a91-ab8a-fc005f412d6a",
+      "name": "Structured Output Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [
+        -1088,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b1c2d3e4-0001-4000-8000-cccccccccccc",
+              "name": "From",
+              "value": "={{ $('Gmail Trigger').item.json.from.value[0].address }}",
+              "type": "string"
+            },
+            {
+              "id": "b1c2d3e4-0002-4000-8000-cccccccccccc",
+              "name": "Subject",
+              "value": "={{ $('Gmail Trigger').item.json.subject }}",
+              "type": "string"
+            },
+            {
+              "id": "b1c2d3e4-0003-4000-8000-cccccccccccc",
+              "name": "BodyText",
+              "value": "={{ $('Gmail Trigger').item.json.text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "19220bde-2b26-4adc-92fc-1dcbe39e0f32",
+      "name": "Set - Limpiar Payload",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -928,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "appToken",
+        "operation": "search",
+        "limit": 1,
+        "filterGroupsUi": {
+          "filterGroupsValues": [
+            {
+              "filtersUi": {
+                "filterValues": [
+                  {
+                    "propertyName": "=email",
+                    "value": "={{ $json.From }}"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "additionalFields": {}
+      },
+      "id": "8bb1d67a-c33c-4f52-a5a6-f3a02a3594b7",
+      "name": "HubSpot - Look Up Contacto",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2.1,
+      "position": [
+        -704,
+        160
+      ],
+      "alwaysOutputData": true,
+      "notes": "Look up por email del remitente. 'Always Output Data' activado para que el IF de routing pueda evaluar también cuando no existe el contacto."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1d2e3f4-0002-4000-8000-dddddddddddd",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "e5958690-3891-4cea-83fa-e0e6a82d844d",
+      "name": "IF - Routing CRM",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -432,
+        160
+      ],
+      "notes": "TRUE = el contacto ya existe en el CRM (Update). FALSE = contacto nuevo (Create)."
+    },
+    {
+      "parameters": {
+        "authentication": "appToken",
+        "email": "={{ $('Set - Limpiar Payload').first().json.From }}",
+        "additionalFields": {},
+        "options": {}
+      },
+      "id": "40ee3d08-59c0-4cdf-8d99-2c0a9265e2ea",
+      "name": "HubSpot - Update Contacto",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2.1,
+      "position": [
+        -176,
+        32
+      ],
+      "notes": "HubSpot expone Update y Create en una única operación 'Create or Update' (upsert por email). En esta rama el contacto ya existe, por lo que se actualiza."
+    },
+    {
+      "parameters": {
+        "authentication": "appToken",
+        "email": "={{ $('Set - Limpiar Payload').first().json.From }}",
+        "additionalFields": {},
+        "options": {}
+      },
+      "id": "38ed9d94-6f1d-402f-a7fa-9e7c76072adc",
+      "name": "HubSpot - Create Contacto",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2.1,
+      "position": [
+        -176,
+        272
+      ],
+      "notes": "En esta rama el contacto no existe, por lo que la operación 'Create or Update' lo crea."
+    },
+    {
+      "parameters": {
+        "resource": "draft",
+        "subject": "=Re: {{ $('Set - Limpiar Payload').first().json.Subject }}",
+        "message": "={{ $('AI Agent').first().json.output.respuesta }}",
+        "options": {
+          "threadId": "={{ $('Gmail Trigger').first().json.threadId }}",
+          "sendTo": "={{ $('Set - Limpiar Payload').first().json.From }}"
+        }
+      },
+      "id": "09d8caaa-f22f-46ad-8f1a-d2bc5c70bb75",
+      "name": "Gmail - Create Draft",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        112,
+        160
+      ],
+      "webhookId": "a4b5c6d7-4444-4d4e-9f5a-3d4e5f6a7b8c",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "13z86MQsPUYFlfKW",
+          "name": "Gmail account"
+        }
+      },
+      "notes": "Guarda la respuesta del agente como borrador (Human-in-the-loop): una persona lo revisa y lo envía manualmente desde Gmail."
+    },
+    {
+      "parameters": {
+        "model": "allam-2-7b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        -1232,
+        400
+      ],
+      "id": "b6639598-001f-48b6-87f9-ac8ea4704718",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "2wxjktuDFypTnZVc",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.5,
+      "position": [
+        320,
+        160
+      ],
+      "id": "a227c3fc-fa81-47dd-95a8-ca7eda30ca6e",
+      "name": "Send a message",
+      "webhookId": "5038f30c-a53c-43af-b839-635472e4f792"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "IF - Anti Auto-Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Anti Auto-Reply": {
+      "main": [
+        [],
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Set - Limpiar Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set - Limpiar Payload": {
+      "main": [
+        [
+          {
+            "node": "HubSpot - Look Up Contacto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HubSpot - Look Up Contacto": {
+      "main": [
+        [
+          {
+            "node": "IF - Routing CRM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Routing CRM": {
+      "main": [
+        [
+          {
+            "node": "HubSpot - Update Contacto",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HubSpot - Create Contacto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HubSpot - Update Contacto": {
+      "main": [
+        [
+          {
+            "node": "Gmail - Create Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HubSpot - Create Contacto": {
+      "main": [
+        [
+          {
+            "node": "Gmail - Create Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail - Create Draft": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "5642f7a5-f967-42d3-8270-e95ad77d052f",
+  "meta": {
+    "instanceId": "3426324e5b7647a0bd51d238fd8c4de3f3b08862686463b6c256e906bbfa8fc9"
+  },
+  "nodeGroups": [],
+  "id": "MUyGc3lhtKjw2Kcf",
+  "tags": []
+}
